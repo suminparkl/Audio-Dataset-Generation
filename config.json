@@ -1,0 +1,10 @@
+{
+    "snr_db": -5,
+    "silence_duration_seconds": 3,
+    "num_samples": 10,
+    "sample_rate": 44100,
+    "seed": 42,
+    "output_dir": "/content/dataset",
+    "musdb_dir": "/content/musdb18",
+    "librispeech_dir": "/content/librispeech_clean/LibriSpeech"
+}

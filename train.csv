@@ -1,0 +1,11 @@
+mix_path,vocals_path,others_path,speech_path,bg_musics_path,duration
+/content/dataset/mix0.wav,/content/dataset/vocals0.wav,/content/dataset/others0.wav,/content/dataset/speech0.wav,/content/dataset/bg_musics0.wav,285.43995464852605
+/content/dataset/mix1.wav,/content/dataset/vocals1.wav,/content/dataset/others1.wav,/content/dataset/speech1.wav,/content/dataset/bg_musics1.wav,280.2122675736961
+/content/dataset/mix2.wav,/content/dataset/vocals2.wav,/content/dataset/others2.wav,/content/dataset/speech2.wav,/content/dataset/bg_musics2.wav,244.97755102040816
+/content/dataset/mix3.wav,/content/dataset/vocals3.wav,/content/dataset/others3.wav,/content/dataset/speech3.wav,/content/dataset/bg_musics3.wav,626.8359637188208
+/content/dataset/mix4.wav,/content/dataset/vocals4.wav,/content/dataset/others4.wav,/content/dataset/speech4.wav,/content/dataset/bg_musics4.wav,167.53575963718822
+/content/dataset/mix5.wav,/content/dataset/vocals5.wav,/content/dataset/others5.wav,/content/dataset/speech5.wav,/content/dataset/bg_musics5.wav,172.46145124716554
+/content/dataset/mix6.wav,/content/dataset/vocals6.wav,/content/dataset/others6.wav,/content/dataset/speech6.wav,/content/dataset/bg_musics6.wav,262.3732426303855
+/content/dataset/mix7.wav,/content/dataset/vocals7.wav,/content/dataset/others7.wav,/content/dataset/speech7.wav,/content/dataset/bg_musics7.wav,38.849410430839
+/content/dataset/mix8.wav,/content/dataset/vocals8.wav,/content/dataset/others8.wav,/content/dataset/speech8.wav,/content/dataset/bg_musics8.wav,355.2827437641723
+/content/dataset/mix9.wav,/content/dataset/vocals9.wav,/content/dataset/others9.wav,/content/dataset/speech9.wav,/content/dataset/bg_musics9.wav,512.4801587301587
