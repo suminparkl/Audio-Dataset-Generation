@@ -21,7 +21,7 @@ noise_snr: 5                             # The SNR value with the noise signal (
 
 ```
 numpy==1.24.3
-pandas==2.2.3
+pandas==2.0.3
 PyYAML==6.0.2
 pydub==0.25.1
 librosa==0.10.0
