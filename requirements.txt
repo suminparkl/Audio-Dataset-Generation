@@ -1,8 +1,15 @@
 numpy==1.24.3
+<<<<<<< HEAD
+=======
+pandas==2.0.3
+>>>>>>> 4bcb2f5de6ff64dd42d763b21e181645c8e3fb3e
 PyYAML==6.0.2
 pydub==0.25.1
 librosa==0.10.0
 stempeg==0.2.3
 soundfile==0.12.1
 argparse==1.4.0
+<<<<<<< HEAD
 pandas==2.0.3
+=======
+>>>>>>> 4bcb2f5de6ff64dd42d763b21e181645c8e3fb3e
