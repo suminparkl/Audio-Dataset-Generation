@@ -5,20 +5,35 @@
 `config.yaml`
 
 ```yaml
-stem_dir: "data/musdb/train"             # 음악 스템 파일이 저장된 디렉토리
-speech_dir: "data/LibriSpeech/dev-clean" # 음성 파일이 저장된 디렉토리
-noise_dir: "data/noise/sound-bible"      # 노이즈 파일이 저장된 디렉토리
-output_dir: "processed_data/train"       # 처리된 파일을 저장할 디렉토리
-result_dir: "processed_data/results"     # 학습/검증/테스트 데이터 분할 결과를 저장할 디렉토리
+stem_dir: "data/musdb/train"             # Directory where music stem files are stored
+speech_dir: "data/LibriSpeech/dev-clean" # Directory where speech files are stored
+noise_dir: "data/noise/sound-bible"      # Directory where noise files are stored
+output_dir: "processed_data/train"       # Directory to save processed files
+result_dir: "processed_data/results"     # Directory to save train/val/test splits
 
-speech_mix_ratio: 0.7                    # 음성과 무음의 비율 (1.0이면 음성 세그먼트 간 간격이 없음)
-speech_gain: 1.0                         # 음성 볼륨 조정 비율 (1.0이면 변경 없음)
+speech_mix_ratio: 0.7                    # If the mix_ratio is 1, there are no intervals between speech segments(connected continuously)
+speech_gain: 1.0                         # Speech volume adjustment ratio (1.0 means no change)
 
-noise_mix_ratio: 0.5                     # 노이즈와 무음의 비율 (1.0이면 노이즈 세그먼트 간 간격이 없음)
-noise_snr: 5                             # 노이즈 신호의 SNR 값 (단위: dB)
+noise_mix_ratio: 0.5                     # If the mix_ratio is 1, there are no intervals between speech segments(connected continuously)
+noise_snr: 5                             # The SNR value with the noise signal (unit: dB)
 ```
 ## 2. requirements.txt
+
+```
+numpy==1.24.3
+pandas==2.2.3
+PyYAML==6.0.2
+pydub==0.25.1
+librosa==0.10.0
+stempeg==0.2.3
+soundfile==0.12.1
+argparse==1.4.0
+```
 ## 3. gen_dataset.py
+
+```
+ python3 gen_dataset.py --config config.yaml
+```
 
 ## 4. Dataset
 
@@ -27,5 +42,46 @@ LibriSpeech.dev-clean
 musdb.train
 musan.noise.sound-bible
 
-# 추후에 google-drive link 추가 예정
+
+data/
+├── LibriSpeech                  # speech dataset
+│   └── dev-clean
+│       ├── 84
+│       │   ├── 121123
+│       │   │   ├── 84-121123-0000.flac
+│       │   │   ├── 84-121123-0001.flac
+│       │   │   └── ...
+│       └── ...
+├── musdb                        # music stem dataset
+│   └── train
+│       ├── music-001.stem.mp4
+│       ├── music-002.stem.mp4
+│       └── ...
+└── musan                         # noise dataset
+    ├── music                     # not used here
+    │   ├── music-001.wav
+    │   ├── music-002.wav
+    │   └── ...
+    ├── noise                    # background noise sound dataset
+    │   ├── free-sound           # Free Sound source
+    │   │   ├── noise-sound-001.wav
+    │   │   ├── noise-sound-002.wav
+    │   │   └── ...
+    │   └── sound-bible          # Sound Bible source
+    │       ├── noise-sound-bible-0071.wav
+    │       ├── noise-sound-bible-0072.wav
+    │       └── ...
+    └── speech                   # not used here
+        ├── speech-001.wav
+        ├── speech-002.wav
+        └── ...
+
+
+# Google Drive Links for Downloading Datasets
+
+- [Download LibriSpeech (dev-clean)](https://drive.google.com/file/d/1pbecU-SD_o2lyCMafsSM4SFQ9lWkfHzB/view?usp=drive_link)
+- [Download MUSDB](https://drive.google.com/file/d/15QMdtI17JFjKzPLIVEMZDBJMJef7PJsx/view?usp=drive_link)
+- [Download MUSAN Noise](https://drive.google.com/file/d/1r-rqnSzligtNrYloBX4hCl7lkCR12ZQ1/view?usp=sharing)
+
+
 ```
