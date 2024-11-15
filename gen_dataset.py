@@ -10,6 +10,9 @@ import argparse
 import yaml
 import logging
 from typing import List, Optional
+from tqdm import tqdm  
+
+
 
 def setup_logging() -> None:
     """
@@ -311,7 +314,8 @@ def create_spleeter_csv(
         logging.error(f"No stem files found in {stem_dir}")
         return
 
-    for i, stem_file in enumerate(stem_files):
+
+    for i, stem_file in enumerate(tqdm(stem_files, desc="Processing stems")):
         # if i >= 3:
         #     break
         stem_path = os.path.join(stem_dir, stem_file)
