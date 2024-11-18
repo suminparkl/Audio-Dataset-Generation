@@ -38,9 +38,9 @@ argparse==1.4.0
 ## 4. Dataset
 
 ```
-LibriSpeech.dev-clean
-musdb.train
-musan.noise.sound-bible
+##LibriSpeech.dev-clean
+##musdb.train
+##musan.noise.sound-bible
 
 
 data/
@@ -77,11 +77,39 @@ data/
         └── ...
 ```
 
+## 5. Prepocessed Dataset for Test
+
+```
+##LibriSpeech.dev-clean
+##musdb.train
+##musan.noise.sound-bible
+
+
+processed_data/
+├── results/
+│   ├── test.csv
+│   ├── total_result.csv
+│   ├── train.csv
+│   └── validation.csv
+└── train/
+    ├── vocals_A Classic Education - NightOwl.wav
+    ├── backgrounds_A Classic Education - NightOwl.wav
+    ├── noise_A Classic Education - NightOwl.wav ##others
+    ├── speech_A Classic Education - NightOwl.wav
+    ├── mix_A Classic Education - NightOwl.wav
+    └── ...
+
+## This test dataset created with the parameters from the config.yaml above.
+
+```
+
 # Google Drive Links for Downloading Datasets
 
 - [Download LibriSpeech (dev-clean)](https://drive.google.com/file/d/1pbecU-SD_o2lyCMafsSM4SFQ9lWkfHzB/view?usp=drive_link)
+- [Download LibriSpeech (train-clean-100)](https://drive.google.com/file/d/1HBw50T374ECaWX6XYTY7S1g4SpDj_U91/view?usp=drive_link)
 - [Download MUSDB](https://drive.google.com/file/d/15QMdtI17JFjKzPLIVEMZDBJMJef7PJsx/view?usp=drive_link)
 - [Download MUSAN Noise](https://drive.google.com/file/d/1r-rqnSzligtNrYloBX4hCl7lkCR12ZQ1/view?usp=sharing)
+- [Download Preprocessed_Dataset_For_Test](https://drive.google.com/file/d/1jnVaSDRp6R_Oq238djobyieSFayTcNBs/view?usp=drive_link)
 
 
 
