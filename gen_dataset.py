@@ -10,9 +10,8 @@ import argparse
 import yaml
 import logging
 from typing import List, Optional
-from tqdm import tqdm  
-
-
+from tqdm import tqdm
+import shutil
 
 def setup_logging() -> None:
     """
@@ -40,50 +39,35 @@ def load_config(config_path: str) -> dict:
         config = yaml.safe_load(file)
     return config
 
-
-def create_train_val_test_split(csv_path: str, result_dir: str) -> None:
+def create_train_val_test_split(stem_files: List[str], train_ratio: float = 0.8, val_ratio: float = 0.1, test_ratio: float = 0.1) -> tuple:
     """
-    Split the final CSV file into train, validation, and test sets.
+    Split the list of stem files into train, validation, and test sets.
 
     Args:
-        csv_path (str): Path to the original CSV file.
-        result_dir (str): Directory to save the train/val/test CSV files.
+        stem_files (List[str]): List of stem files.
+        train_ratio (float): Ratio of training data.
+        val_ratio (float): Ratio of validation data.
+        test_ratio (float): Ratio of test data.
+
+    Returns:
+        tuple: (train_files, val_files, test_files)
     """
-    os.makedirs(result_dir, exist_ok=True)
+    total = len(stem_files)
+    train_end = int(total * train_ratio)
+    val_end = train_end + int(total * val_ratio)
 
-    # Load the final dataset
-    data = pd.read_csv(csv_path)
-    data = data.sample(frac=1, random_state=42).reset_index(drop=True)  # Shuffle the data
+    train_files = stem_files[:train_end]
+    val_files = stem_files[train_end:val_end]
+    test_files = stem_files[val_end:]
 
-    # Calculate split sizes
-    total_size = len(data)
-    train_size = int(total_size * 0.8)
-    val_size = int(total_size * 0.1)
-    test_size = total_size - train_size - val_size
+    logging.info(f"Total files: {total}")
+    logging.info(f"Train size: {len(train_files)}, Validation size: {len(val_files)}, Test size: {len(test_files)}")
 
-    # Split the data
-    train_data = data.iloc[:train_size]
-    val_data = data.iloc[train_size:train_size + val_size]
-    test_data = data.iloc[train_size + val_size:]
-
-    # Save splits to CSV
-    train_path = os.path.join(result_dir, "train.csv")
-    val_path = os.path.join(result_dir, "validation.csv")
-    test_path = os.path.join(result_dir, "test.csv")
-
-    train_data.to_csv(train_path, index=False)
-    val_data.to_csv(val_path, index=False)
-    test_data.to_csv(test_path, index=False)
-
-    logging.info(f"Train, validation, and test splits saved to {result_dir}")
-    logging.info(f"Train set size: {train_size}, Validation set size: {val_size}, Test set size: {test_size}")
-
-
+    return train_files, val_files, test_files
 
 def calculate_noise_gain(clean_audio: AudioSegment, noise_audio: AudioSegment, snr: float) -> float:
     """
     Calculate the gain needed for the noise audio to achieve the desired SNR.
-    This is because we use SNR (constant value) as input.
 
     Args:
         clean_audio (AudioSegment): The clean audio segment.
@@ -116,11 +100,10 @@ def extract_and_save_stems(stem_path: str, output_dir: str) -> tuple:
     vocal_path = os.path.join(output_dir, f"vocals_{stem_name}.wav")
     background_path = os.path.join(output_dir, f"backgrounds_{stem_name}.wav")
 
-    # Extract stems
+    # Extract stems 
     audio, rate = stempeg.read_stems(stem_path)
     vocals = audio[4]
     backgrounds = np.sum(audio[1:4], axis=0)
-    mixture = audio[0]
 
     # 0 - The mixture,
     # 1 - The drums,
@@ -128,23 +111,17 @@ def extract_and_save_stems(stem_path: str, output_dir: str) -> tuple:
     # 3 - The rest of the accompaniment,
     # 4 - The vocals.
 
-
-    # Convert to mono
-    mixture_mono = np.mean(mixture, axis=1)
-    vocals_mono = np.mean(vocals, axis=1)
-    backgrounds_mono = np.mean(backgrounds, axis=1)
-
-    # Trim silence (Because the music doesn't start immediately, if we don't trim, only the voice will be heard at the beginning of the mixed audio.)
+    mixture_mono = np.mean(audio[0], axis=1)
     trimmed_indices = librosa.effects.trim(mixture_mono, top_db=20)[1]
     start_idx, end_idx = trimmed_indices
-    vocals_trimmed = vocals_mono[start_idx:end_idx]
-    backgrounds_trimmed = backgrounds_mono[start_idx:end_idx]
+    vocals_trimmed = vocals[start_idx:end_idx, :]
+    backgrounds_trimmed = backgrounds[start_idx:end_idx, :]
 
     # Save audio files
     sf.write(vocal_path, vocals_trimmed, rate)
     sf.write(background_path, backgrounds_trimmed, rate)
 
-    vocal_duration = len(vocals_trimmed) / rate
+    vocal_duration = (end_idx - start_idx) / rate
 
     return vocal_path, background_path, vocal_duration, rate
 
@@ -155,7 +132,7 @@ def process_audio_data(
     reference_audio_path: Optional[str] = None
 ) -> Optional[str]:
     """
-    Process audio data (speech or noise) and save the combined audio.
+    Process audio data (speech or noise) and save the combined audio as stereo.
 
     Args:
         audio_dir (str): Directory containing audio files.
@@ -198,6 +175,7 @@ def process_audio_data(
                 break
             audio_file = audio_files.pop()
             audio_segment = AudioSegment.from_file(audio_file)
+            audio_segment = audio_segment.set_channels(2)  # Ensure stereo
             segment_length = min(
                 audio_segment.duration_seconds,
                 total_audio_duration,
@@ -218,7 +196,7 @@ def process_audio_data(
                 total_silence_duration,
                 vocal_duration - current_duration
             )
-            silence = AudioSegment.silent(duration=silence_length * 1000)
+            silence = AudioSegment.silent(duration=silence_length * 1000).set_channels(2)  # Ensure stereo
             audio_segments.append(silence)
 
             current_duration += silence_length
@@ -226,27 +204,24 @@ def process_audio_data(
 
     if current_duration < vocal_duration:
         remaining_silence = vocal_duration - current_duration
-        silence = AudioSegment.silent(duration=remaining_silence * 1000)
+        silence = AudioSegment.silent(duration=remaining_silence * 1000).set_channels(2)  # Ensure stereo
         audio_segments.append(silence)
         current_duration += remaining_silence
 
     combined_audio = sum(audio_segments)
     combined_audio = combined_audio.set_frame_rate(rate)
-    combined_audio = combined_audio.set_channels(1)
+    combined_audio = combined_audio.set_channels(2)  # Ensure stereo at final step
     output_path = os.path.join(output_dir, f"{audio_type}_{stem_name}.wav")
 
     if audio_type == "speech" and gain is not None:
-        # Adjust speech volume
         gain_db = 20 * np.log10(gain)
         combined_audio = combined_audio.apply_gain(gain_db)
     elif audio_type == "noise" and snr is not None and reference_audio_path:
-        # Adjust noise volume based on desired SNR
-        reference_audio = AudioSegment.from_file(reference_audio_path).set_channels(1)
+        reference_audio = AudioSegment.from_file(reference_audio_path).set_channels(2)  # Ensure stereo for reference
         calculated_gain = calculate_noise_gain(reference_audio, combined_audio, snr)
         combined_audio = combined_audio.apply_gain(calculated_gain)
 
     combined_audio.export(output_path, format="wav")
-
     return output_path
 
 def mix_audios(
@@ -267,19 +242,19 @@ def mix_audios(
     Returns:
         str: Path to the mixed audio file.
     """
-    vocals_audio = AudioSegment.from_file(vocal_path).set_channels(1)
-    backgrounds_audio = AudioSegment.from_file(background_path).set_channels(1)
+    vocals_audio = AudioSegment.from_file(vocal_path)
+    backgrounds_audio = AudioSegment.from_file(background_path)
 
     bg_music_audio = vocals_audio.overlay(backgrounds_audio)
 
     if speech_path:
-        speech_audio = AudioSegment.from_file(speech_path).set_channels(1)
+        speech_audio = AudioSegment.from_file(speech_path)
         mix_audio = bg_music_audio.overlay(speech_audio)
     else:
         mix_audio = bg_music_audio
 
     if noise_path:
-        noise_audio = AudioSegment.from_file(noise_path).set_channels(1)
+        noise_audio = AudioSegment.from_file(noise_path)
         mix_audio = mix_audio.overlay(noise_audio)
 
     mix_path = os.path.join(output_dir, f"mix_{stem_name}.wav")
@@ -288,72 +263,66 @@ def mix_audios(
     return mix_path
 
 def create_spleeter_csv(
-    stem_dir: str, speech_dir: str, noise_dir: str, output_dir: str, csv_path: str,
+    stem_files: List[str], stem_dir: str, speech_dir: str, noise_dir: str,
+    subset_dir: str, csv_path: str,
     speech_mix_ratio: float = 0.7, speech_gain: float = 1.0,
     noise_mix_ratio: float = 0.5, noise_snr: float = 10
 ) -> None:
     """
-    Main function to create the Spleeter CSV file and process audio data.
+    Process a subset of stem files and save outputs into the subset directory.
 
     Args:
+        stem_files (List[str]): List of stem files to process.
         stem_dir (str): Directory containing stem files.
         speech_dir (str): Directory containing speech data.
         noise_dir (str): Directory containing noise data.
-        output_dir (str): Directory to save outputs.
-        csv_path (str): Path to save the CSV file.
-        speech_mix_ratio (float, optional): Ratio of speech in the mix. Defaults to 0.7.
-        speech_gain (float, optional): Gain factor for speech audio. Defaults to 1.0.
-        noise_mix_ratio (float, optional): Ratio of noise in the mix. Defaults to 0.5.
-        noise_snr (float, optional): Desired SNR for noise. Defaults to 10.
+        subset_dir (str): Directory to save outputs for this subset.
+        csv_path (str): Path to save the subset CSV file.
+        speech_mix_ratio (float, optional): Ratio of speech in the mix.
+        speech_gain (float, optional): Gain factor for speech audio.
+        noise_mix_ratio (float, optional): Ratio of noise in the mix.
+        noise_snr (float, optional): Desired SNR for noise.
     """
     data = []
-    os.makedirs(output_dir, exist_ok=True)
+    os.makedirs(subset_dir, exist_ok=True)
 
-    stem_files = [f for f in os.listdir(stem_dir) if f.endswith(".stem.mp4")]
     if not stem_files:
-        logging.error(f"No stem files found in {stem_dir}")
+        logging.error(f"No stem files provided for {subset_dir}")
         return
 
-
-    for i, stem_file in enumerate(tqdm(stem_files, desc="Processing stems")):
-        # if i >= 3:
-        #     break
+    for i, stem_file in enumerate(tqdm(stem_files, desc=f"Processing {subset_dir} stems")):
         stem_path = os.path.join(stem_dir, stem_file)
         stem_name = stem_file.split(".stem")[0]
 
         try:
-            # Extract vocals and backgrounds
-            vocal_path, background_path, vocal_duration, rate = extract_and_save_stems(stem_path, output_dir)
+            vocal_path, background_path, vocal_duration, rate = extract_and_save_stems(stem_path, subset_dir)
 
-            # Process speech data
             speech_path = process_audio_data(
                 audio_dir=speech_dir,
                 vocal_duration=vocal_duration,
                 rate=rate,
                 stem_name=stem_name,
                 mix_ratio=speech_mix_ratio,
-                output_dir=output_dir,
+                output_dir=subset_dir,
                 audio_type='speech',
                 gain=speech_gain
             )
 
-            # Process noise data
             noise_path = process_audio_data(
                 audio_dir=noise_dir,
                 vocal_duration=vocal_duration,
                 rate=rate,
                 stem_name=stem_name,
                 mix_ratio=noise_mix_ratio,
-                output_dir=output_dir,
+                output_dir=subset_dir,
                 audio_type='noise',
                 snr=noise_snr,
                 reference_audio_path=background_path
             )
 
-            # Mix audios
             mix_path = mix_audios(
                 vocal_path, background_path, speech_path,
-                noise_path, output_dir, stem_name
+                noise_path, subset_dir, stem_name
             )
 
             data.append({
@@ -361,7 +330,7 @@ def create_spleeter_csv(
                 "vocals_path": vocal_path,
                 "backgrounds_path": background_path,
                 "speech_path": speech_path,
-                "others_path": noise_path,  # Noise
+                "others_path": noise_path,    # Noise
                 "duration": vocal_duration,
             })
 
@@ -376,12 +345,9 @@ def create_spleeter_csv(
         df.to_csv(csv_path, index=False)
         logging.info(f"CSV file saved to {csv_path}")
     else:
-        logging.warning("No data to write to CSV.")
+        logging.warning(f"No data to write to CSV for {subset_dir}.")
 
 def main() -> None:
-    """
-    Entry point of the script.
-    """
     setup_logging()
     parser = argparse.ArgumentParser(description="Create Spleeter CSV")
     parser.add_argument('--config', type=str, default='config.yaml', help='Path to the configuration file')
@@ -391,29 +357,89 @@ def main() -> None:
     args = parser.parse_args()
     config = load_config(args.config)
 
-    # Override values if provided via command line
+    # Base output directory
+    output_dir = config['output_dir']
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Optional parameters
     speech_gain = args.speech_gain if args.speech_gain is not None else config.get('speech_gain', 1.0)
     noise_snr = args.noise_snr if args.noise_snr is not None else config.get('noise_snr', 10)
 
-    # Create the total result CSV file
-    total_result_csv_path = os.path.join(config['result_dir'], 'total_result.csv')
+    # List and shuffle stem files
+    stem_files = [f for f in os.listdir(config['stem_dir']) if f.endswith(".stem.mp4")]
+    if not stem_files:
+        logging.error(f"No stem files found in {config['stem_dir']}")
+        return
+
+    random.shuffle(stem_files)
+
+    # Split into train, validation, test
+    train_files, val_files, test_files = create_train_val_test_split(stem_files, train_ratio=0.8, val_ratio=0.1, test_ratio=0.1)
+
+    # Define directories
+    train_dir = os.path.join(output_dir, "train")
+    test_dir = os.path.join(output_dir, "test")
+    os.makedirs(train_dir, exist_ok=True)
+    os.makedirs(test_dir, exist_ok=True)
+
+    # Process train subset
+    train_csv_path = os.path.join(output_dir, "train.csv")
     create_spleeter_csv(
+        stem_files=train_files,
         stem_dir=config['stem_dir'],
         speech_dir=config['speech_dir'],
         noise_dir=config.get('noise_dir', ''),
-        output_dir=config['output_dir'],
-        csv_path=total_result_csv_path,
+        subset_dir=train_dir,
+        csv_path=train_csv_path,
         speech_mix_ratio=config.get('speech_mix_ratio', 0.7),
         speech_gain=speech_gain,
         noise_mix_ratio=config.get('noise_mix_ratio', 0.5),
         noise_snr=noise_snr
     )
 
-    # Split final CSV into train, validation, and test sets
-    create_train_val_test_split(
-        csv_path=total_result_csv_path,
-        result_dir=config['result_dir']
+    # Process validation subset
+    validation_csv_path = os.path.join(output_dir, "validation.csv")
+    create_spleeter_csv(
+        stem_files=val_files,
+        stem_dir=config['stem_dir'],
+        speech_dir=config['speech_dir'],
+        noise_dir=config.get('noise_dir', ''),
+        subset_dir=train_dir,  # Validation data also stored in train directory
+        csv_path=validation_csv_path,
+        speech_mix_ratio=config.get('speech_mix_ratio', 0.7),
+        speech_gain=speech_gain,
+        noise_mix_ratio=config.get('noise_mix_ratio', 0.5),
+        noise_snr=noise_snr
     )
+
+    # Process test subset
+    test_csv_path = os.path.join(output_dir, "test.csv")
+    create_spleeter_csv(
+        stem_files=test_files,
+        stem_dir=config['stem_dir'],
+        speech_dir=config['speech_dir'],
+        noise_dir=config.get('noise_dir', ''),
+        subset_dir=test_dir,
+        csv_path=test_csv_path,
+        speech_mix_ratio=config.get('speech_mix_ratio', 0.7),
+        speech_gain=speech_gain,
+        noise_mix_ratio=config.get('noise_mix_ratio', 0.5),
+        noise_snr=noise_snr
+    )
+
+    # Create a total CSV if needed
+    total_result_csv_path = os.path.join(output_dir, "total_result.csv")
+    all_data = []
+    for csv_file in [train_csv_path, validation_csv_path, test_csv_path]:
+        if os.path.exists(csv_file):
+            df = pd.read_csv(csv_file)
+            all_data.append(df)
+    if all_data:
+        total_df = pd.concat(all_data, ignore_index=True)
+        total_df.to_csv(total_result_csv_path, index=False)
+        logging.info(f"Total CSV file saved to {total_result_csv_path}")
+    else:
+        logging.warning("No data to write to total_result.csv.")
 
 if __name__ == "__main__":
     main()
