@@ -5,17 +5,14 @@
 `config.yaml`
 
 ```yaml
-stem_dir: "data/musdb/train"             # Directory where music stem files are stored
-speech_dir: "data/LibriSpeech/dev-clean" # Directory where speech files are stored
-noise_dir: "data/noise/sound-bible"      # Directory where noise files are stored
-output_dir: "processed_data/train"       # Directory to save processed files
-result_dir: "processed_data/results"     # Directory to save train/val/test splits
-
-speech_mix_ratio: 0.7                    # If the mix_ratio is 1, there are no intervals between speech segments(connected continuously)
-speech_gain: 1.0                         # Speech volume adjustment ratio (1.0 means no change)
-
-noise_mix_ratio: 0.5                     # If the mix_ratio is 1, there are no intervals between speech segments(connected continuously)
-noise_snr: 5                             # The SNR value with the noise signal (unit: dB)
+stem_dir: "data/musdb/train"
+speech_dir: "data/LibriSpeech/dev-clean"
+noise_dir: "data/noise/sound-bible"
+output_dir: "processed_data"  # Base directory for processed data
+speech_mix_ratio: 0.7         # If the mix_ratio is 1, there are no intervals between speech segments (connected continuously)
+speech_gain: 1.0              # Speech volume adjustment ratio (1.0 means no change)
+noise_mix_ratio: 0.5          # If the mix_ratio is 1, there are no intervals between noise segments (connected continuously)
+noise_snr: 5                  # The SNR value with the noise signal (unit: dB)
 ```
 ## 2. requirements.txt
 
@@ -28,6 +25,7 @@ librosa==0.10.0
 stempeg==0.2.3
 soundfile==0.12.1
 argparse==1.4.0
+tqdm==4.67.0
 ```
 ## 3. gen_dataset.py
 
@@ -86,18 +84,25 @@ data/
 
 
 processed_data/
-├── results/
-│   ├── test.csv
-│   ├── total_result.csv
-│   ├── train.csv
-│   └── validation.csv
-└── train/
-    ├── vocals_A Classic Education - NightOwl.wav
-    ├── backgrounds_A Classic Education - NightOwl.wav
-    ├── noise_A Classic Education - NightOwl.wav ##others
-    ├── speech_A Classic Education - NightOwl.wav
-    ├── mix_A Classic Education - NightOwl.wav
-    └── ...
+├── train/
+│   ├── mix_Music Delta - Disco.wav
+│   ├── vocals_Music Delta - Disco.wav
+│   ├── backgrounds_Music Delta - Disco.wav
+│   ├── speech_Music Delta - Disco.wav
+│   ├── noise_Music Delta - Disco.wav
+│   ├── mix_The Wrong'Uns - Rothko.wav
+│   ├── ...
+├── test/
+│   ├── mix_James May - All Souls Moon.wav
+│   ├── vocals_James May - All Souls Moon.wav
+│   ├── backgrounds_James May - All Souls Moon.wav
+│   ├── speech_James May - All Souls Moon.wav
+│   ├── noise_James May - All Souls Moon.wav
+│   ├── ...
+├── train.csv
+├── validation.csv
+├── test.csv
+└── total_result.csv
 
 ## This test dataset created with the parameters from the config.yaml above.
 
