@@ -1,9 +1,8 @@
 stem_dir: "data/musdb/train"
 speech_dir: "data/LibriSpeech/dev-clean"
-noise_dir : "data/noise/sound-bible"
-output_dir: "processed_data/train"
-result_dir: "processed_data/results" # directory to save train/val/test splits
-speech_mix_ratio: 0.7 #If the mix_ratio is 1, there are no intervals between speech segments(connected continuously)
-speech_gain: 1.0 #Speech volume adjustment ratio (1.0 means no change)
-noise_mix_ratio : 0.5 #If the mix_ratio is 1, there are no intervals between speech segments(connected continuously)
-noise_snr : 5 #The SNR value with the noise signal (unit: dB)
+noise_dir: "data/noise/sound-bible"
+output_dir: "processed_data"  # Base directory for processed data
+speech_mix_ratio: 0.7         # If the mix_ratio is 1, there are no intervals between speech segments (connected continuously)
+speech_gain: 1.0              # Speech volume adjustment ratio (1.0 means no change)
+noise_mix_ratio: 0.5          # If the mix_ratio is 1, there are no intervals between noise segments (connected continuously)
+noise_snr: 5                  # The SNR value with the noise signal (unit: dB)
