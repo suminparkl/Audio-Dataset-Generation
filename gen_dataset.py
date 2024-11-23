@@ -83,6 +83,12 @@ def calculate_noise_gain(clean_audio: AudioSegment, noise_audio: AudioSegment, s
     if noise_rms == 0:
         return -float('inf')  # Handle silence in noise
     gain = 20 * np.log10(desired_noise_rms / noise_rms)
+
+
+    # SNR = 20 dB: The signal power is 100 times greater than the noise power.
+    # SNR = 0 dB: The signal and noise have equal power.
+    # SNR < 0 dB: The noise power is greater than the signal power.
+
     return gain
 
 def extract_and_save_stems(stem_path: str, output_dir: str) -> tuple:
@@ -99,11 +105,13 @@ def extract_and_save_stems(stem_path: str, output_dir: str) -> tuple:
     stem_name = os.path.basename(stem_path).split(".stem")[0]
     vocal_path = os.path.join(output_dir, f"vocals_{stem_name}.wav")
     background_path = os.path.join(output_dir, f"backgrounds_{stem_name}.wav")
+    # origin_music_path = os.path.join(output_dir, f"origin_music_{stem_name}.wav")
 
     # Extract stems 
     audio, rate = stempeg.read_stems(stem_path)
     vocals = audio[4]
     backgrounds = np.sum(audio[1:4], axis=0)
+    # origin_music = audio[0]
 
     # 0 - The mixture,
     # 1 - The drums,
@@ -120,6 +128,7 @@ def extract_and_save_stems(stem_path: str, output_dir: str) -> tuple:
     # Save audio files
     sf.write(vocal_path, vocals_trimmed, rate)
     sf.write(background_path, backgrounds_trimmed, rate)
+    # sf.write(origin_music_path, origin_music, rate)
 
     vocal_duration = (end_idx - start_idx) / rate
 
@@ -128,7 +137,7 @@ def extract_and_save_stems(stem_path: str, output_dir: str) -> tuple:
 def process_audio_data(
     audio_dir: str, vocal_duration: float, rate: int, stem_name: str,
     mix_ratio: float, output_dir: str, audio_type: str,
-    gain: Optional[float] = None, snr: Optional[float] = None,
+    speech_gain: Optional[float] = None, snr: Optional[float] = None,
     reference_audio_path: Optional[str] = None
 ) -> Optional[str]:
     """
@@ -142,7 +151,7 @@ def process_audio_data(
         mix_ratio (float): Ratio of the audio to mix.
         output_dir (str): Directory to save outputs.
         audio_type (str): Type of audio ('speech' or 'noise').
-        gain (Optional[float]): Gain to apply to audio (for speech).
+        background_gain (Optional[float]): Gain to apply to audio (for background).
         snr (Optional[float]): Desired signal-to-noise ratio (for noise).
         reference_audio_path (Optional[str]): Path to reference audio (for noise SNR calculation).
 
@@ -165,6 +174,9 @@ def process_audio_data(
     if not audio_files:
         logging.error(f"No {audio_type} files found in {audio_dir}")
         return None
+    
+    # for reproduction remove randomness if you want, add below line
+
     random.shuffle(audio_files)
 
     current_duration = 0
@@ -213,10 +225,13 @@ def process_audio_data(
     combined_audio = combined_audio.set_channels(2)  # Ensure stereo at final step
     output_path = os.path.join(output_dir, f"{audio_type}_{stem_name}.wav")
 
-    if audio_type == "speech" and gain is not None:
-        gain_db = 20 * np.log10(gain)
+    ## original version -> control speech decibel with respect to music
+    if audio_type == "speech" and speech_gain is not None:
+        gain_db = 20 * np.log10(speech_gain)
         combined_audio = combined_audio.apply_gain(gain_db)
-    elif audio_type == "noise" and snr is not None and reference_audio_path:
+
+
+    if audio_type == "noise" and snr is not None and reference_audio_path:
         reference_audio = AudioSegment.from_file(reference_audio_path).set_channels(2)  # Ensure stereo for reference
         calculated_gain = calculate_noise_gain(reference_audio, combined_audio, snr)
         combined_audio = combined_audio.apply_gain(calculated_gain)
@@ -226,7 +241,8 @@ def process_audio_data(
 
 def mix_audios(
     vocal_path: str, background_path: str, speech_path: Optional[str],
-    noise_path: Optional[str], output_dir: str, stem_name: str
+    noise_path: Optional[str], output_dir: str, stem_name: str,
+    background_gain : float,
 ) -> str:
     """
     Mix the various audio components into a final mix.
@@ -245,6 +261,11 @@ def mix_audios(
     vocals_audio = AudioSegment.from_file(vocal_path)
     backgrounds_audio = AudioSegment.from_file(background_path)
 
+    if background_gain is not None:
+        bg_gain_db = 20 * np.log10(background_gain)
+        vocals_audio = vocals_audio.apply_gain(bg_gain_db)
+        backgrounds_audio = backgrounds_audio.apply_gain(bg_gain_db)
+
     bg_music_audio = vocals_audio.overlay(backgrounds_audio)
 
     if speech_path:
@@ -261,12 +282,12 @@ def mix_audios(
     mix_audio.export(mix_path, format="wav")
 
     return mix_path
-
 def create_spleeter_csv(
     stem_files: List[str], stem_dir: str, speech_dir: str, noise_dir: str,
     subset_dir: str, csv_path: str,
     speech_mix_ratio: float = 0.7, speech_gain: float = 1.0,
-    noise_mix_ratio: float = 0.5, noise_snr: float = 10
+    noise_mix_ratio: float = 0.5, noise_snr: float = 10,
+    background_gain :float = 1.0
 ) -> None:
     """
     Process a subset of stem files and save outputs into the subset directory.
@@ -305,7 +326,7 @@ def create_spleeter_csv(
                 mix_ratio=speech_mix_ratio,
                 output_dir=subset_dir,
                 audio_type='speech',
-                gain=speech_gain
+                speech_gain=speech_gain
             )
 
             noise_path = process_audio_data(
@@ -319,10 +340,11 @@ def create_spleeter_csv(
                 snr=noise_snr,
                 reference_audio_path=background_path
             )
-
+    
             mix_path = mix_audios(
                 vocal_path, background_path, speech_path,
-                noise_path, subset_dir, stem_name
+                noise_path, subset_dir, stem_name,
+                background_gain,
             )
 
             data.append({
@@ -349,13 +371,22 @@ def create_spleeter_csv(
 
 def main() -> None:
     setup_logging()
+
     parser = argparse.ArgumentParser(description="Create Spleeter CSV")
     parser.add_argument('--config', type=str, default='config.yaml', help='Path to the configuration file')
     parser.add_argument('--speech_gain', type=float, help='Gain factor for speech audio (default from config)')
     parser.add_argument('--noise_snr', type=float, help='Desired SNR for noise (default from config)')
+    parser.add_argument('--background_gain', type=float, help='Gain factor for background audio (default from config)') 
+    parser.add_argument('--seed', type=float, help='Set random seed for reproduction')  
+
 
     args = parser.parse_args()
     config = load_config(args.config)
+
+
+    # SEED = 42
+    SEED = args.seed if args.seed is not None else config.get('seed', 42)
+    random.seed(SEED)
 
     # Base output directory
     output_dir = config['output_dir']
@@ -364,6 +395,8 @@ def main() -> None:
     # Optional parameters
     speech_gain = args.speech_gain if args.speech_gain is not None else config.get('speech_gain', 1.0)
     noise_snr = args.noise_snr if args.noise_snr is not None else config.get('noise_snr', 10)
+    background_gain = args.background_gain if args.background_gain is not None else config.get('background_gain', 1.0)
+
 
     # List and shuffle stem files
     stem_files = [f for f in os.listdir(config['stem_dir']) if f.endswith(".stem.mp4")]
@@ -394,7 +427,8 @@ def main() -> None:
         speech_mix_ratio=config.get('speech_mix_ratio', 0.7),
         speech_gain=speech_gain,
         noise_mix_ratio=config.get('noise_mix_ratio', 0.5),
-        noise_snr=noise_snr
+        noise_snr=noise_snr,
+        background_gain = background_gain
     )
 
     # Process validation subset
@@ -424,7 +458,8 @@ def main() -> None:
         speech_mix_ratio=config.get('speech_mix_ratio', 0.7),
         speech_gain=speech_gain,
         noise_mix_ratio=config.get('noise_mix_ratio', 0.5),
-        noise_snr=noise_snr
+        noise_snr=noise_snr,
+        background_gain = background_gain
     )
 
     # Create a total CSV if needed
