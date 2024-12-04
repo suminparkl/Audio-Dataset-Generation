@@ -1,6 +1,4 @@
-# Sumin 
-
-## 1. 설정 파일: `config.yaml`
+## 1. Configuration file: `config.yaml`
 
 `config.yaml`
 
