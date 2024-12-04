@@ -65,31 +65,44 @@ def create_train_val_test_split(stem_files: List[str], train_ratio: float = 0.8,
 
     return train_files, val_files, test_files
 
-def calculate_noise_gain(clean_audio: AudioSegment, noise_audio: AudioSegment, snr: float) -> float:
+def calculate_noise_gain(music_audio: AudioSegment, speech_audio: Optional[AudioSegment], noise_audio: AudioSegment, snr: float) -> float:
     """
     Calculate the gain needed for the noise audio to achieve the desired SNR.
 
     Args:
-        clean_audio (AudioSegment): The clean audio segment.
+        music_audio (AudioSegment): The music audio segment.
+        speech_audio (Optional[AudioSegment]): The speech audio segment (optional if only music is used).
         noise_audio (AudioSegment): The noise audio segment.
         snr (float): The desired signal-to-noise ratio in dB.
 
     Returns:
         float: The gain in dB to apply to the noise audio.
     """
-    clean_rms = clean_audio.rms
+    # Calculate RMS for music + speech combined
+    music_rms = music_audio.rms
+    speech_rms = speech_audio.rms if speech_audio else 0
+    combined_rms = np.sqrt((music_rms ** 2 + speech_rms ** 2) / 2)
+
+    # Calculate RMS for noise
     noise_rms = noise_audio.rms
-    desired_noise_rms = clean_rms / (10 ** (snr / 20))
+
     if noise_rms == 0:
+        logging.warning("Noise RMS is zero. Returning infinite gain.")
         return -float('inf')  # Handle silence in noise
+
+    # Desired noise RMS for the given SNR
+    desired_noise_rms = combined_rms / (10 ** (snr / 20))
+
+    # Calculate gain
     gain = 20 * np.log10(desired_noise_rms / noise_rms)
+    return gain
 
 
     # SNR = 20 dB: The signal power is 100 times greater than the noise power.
     # SNR = 0 dB: The signal and noise have equal power.
     # SNR < 0 dB: The noise power is greater than the signal power.
 
-    return gain
+
 
 def calculate_speech_gain(music_audio: AudioSegment, speech_audio: AudioSegment, smr: float) -> float:
     """
@@ -155,7 +168,8 @@ def extract_music_stem(stem_path: str, output_dir: str) -> tuple:
 def process_audio_data(
     audio_dir: str, transcriptions: dict, vocal_duration: float, rate: int, stem_name: str,
     output_dir: str, audio_type: str, min_snr: Optional[float] = None, max_snr: Optional[float] = None,
-    min_smr: Optional[float] = None, max_smr: Optional[float] = None, reference_audio_path: Optional[str] = None
+    min_smr: Optional[float] = None, max_smr: Optional[float] = None, 
+    music_audio: Optional[AudioSegment] = None, speech_audio: Optional[AudioSegment] = None
 ) -> tuple:
     """
     Process audio data (speech or noise) and save the combined audio as stereo.
@@ -172,7 +186,8 @@ def process_audio_data(
         max_snr (Optional[float]): Maximum SNR value for noise adjustment.
         min_smr (Optional[float]): Minimum SMR value for speech adjustment.
         max_smr (Optional[float]): Maximum SMR value for speech adjustment.
-        reference_audio_path (Optional[str]): Path to reference audio for SNR calculation.
+        music_audio (Optional[AudioSegment]): Music audio for reference (needed for noise SNR adjustment).
+        speech_audio (Optional[AudioSegment]): Speech audio for reference (needed for noise SNR adjustment).
 
     Returns:
         tuple: (Path to the processed audio file, Combined transcription)
@@ -216,18 +231,16 @@ def process_audio_data(
             break
 
         # Apply SNR for noise
-        if audio_type == "noise" and reference_audio_path and min_snr is not None and max_snr is not None:
+        if audio_type == "noise" and music_audio is not None and min_snr is not None and max_snr is not None:
             snr = random.uniform(min_snr, max_snr)
-            reference_audio = AudioSegment.from_file(reference_audio_path).set_channels(2)
-            calculated_gain = calculate_noise_gain(reference_audio, audio_segment, snr)
+            calculated_gain = calculate_noise_gain(music_audio, speech_audio, audio_segment, snr)
             audio_segment = audio_segment.apply_gain(calculated_gain)
 
         # Apply SMR for speech
         if audio_type == "speech" and min_smr is not None and max_smr is not None:
             smr = random.uniform(min_smr, max_smr)
-            if reference_audio_path:
-                reference_audio = AudioSegment.from_file(reference_audio_path).set_channels(2)
-                calculated_gain = calculate_speech_gain(reference_audio, audio_segment, smr)
+            if music_audio:
+                calculated_gain = calculate_speech_gain(music_audio, audio_segment, smr)
                 audio_segment = audio_segment.apply_gain(calculated_gain)
             # Add transcription for speech
             audio_id = os.path.splitext(os.path.basename(audio_file))[0]
@@ -363,6 +376,7 @@ def create_spleeter_csv(
         try:
             # Extract music stem
             music_path, music_duration, rate = extract_music_stem(stem_path, subset_dir)
+            music_audio = AudioSegment.from_file(music_path)
 
             # Process speech
             speech_path, combined_transcription = process_audio_data(
@@ -374,8 +388,10 @@ def create_spleeter_csv(
                 output_dir=subset_dir,
                 audio_type='speech',
                 min_smr=min_smr,
-                max_smr=max_smr
+                max_smr=max_smr,
+                music_audio=music_audio  # Pass music audio for SMR
             )
+            speech_audio = AudioSegment.from_file(speech_path) if speech_path else None
 
             # Process others (noise)
             others_path, _ = process_audio_data(
@@ -388,7 +404,8 @@ def create_spleeter_csv(
                 audio_type='noise',
                 min_snr=min_snr,
                 max_snr=max_snr,
-                reference_audio_path=music_path
+                music_audio=music_audio,  # Pass music audio for SNR
+                speech_audio=speech_audio  # Pass speech audio for combined SNR
             )
 
             # Create mix audio with SMR
