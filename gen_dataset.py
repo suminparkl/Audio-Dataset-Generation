@@ -460,38 +460,34 @@ def main() -> None:
     os.makedirs(train_dir, exist_ok=True)
     os.makedirs(test_dir, exist_ok=True)
 
-    # # Process train subset
-    # train_csv_path = os.path.join(output_dir, "train.csv")
-    # create_spleeter_csv(
-    #     stem_files=train_files,
-    #     stem_dir=config['stem_dir'],
-    #     speech_dir=config['speech_dir'],
-    #     noise_dir=config.get('noise_dir', ''),
-    #     subset_dir=train_dir,
-    #     csv_path=train_csv_path,
-    #     trans_dir=config['trans_dir'],
-    #     speech_mix_ratio=config.get('speech_mix_ratio', 0.7),
-    #     speech_gain=speech_gain,
-    #     noise_mix_ratio=config.get('noise_mix_ratio', 0.5),
-    #     snr=snr
-    # )
+    # Process train subset
+    train_csv_path = os.path.join(output_dir, "train.csv")
+    create_spleeter_csv(
+        stem_files=train_files,
+        stem_dir=config['stem_dir'],
+        speech_dir=config['speech_dir'],
+        noise_dir=config.get('noise_dir', ''),
+        subset_dir=train_dir,
+        csv_path=train_csv_path,
+        trans_dir=config['trans_dir'],
+        smr=smr,
+        snr=snr
+    )
 
 
-    # # Process validation subset
-    # validation_csv_path = os.path.join(output_dir, "validation.csv")
-    # create_spleeter_csv(
-    #     stem_files=val_files,
-    #     stem_dir=config['stem_dir'],
-    #     speech_dir=config['speech_dir'],
-    #     noise_dir=config.get('noise_dir', ''),
-    #     subset_dir=train_dir,  # Validation data also stored in train directory
-    #     csv_path=validation_csv_path,
-    #     trans_dir=config['trans_dir'],
-    #     speech_mix_ratio=config.get('speech_mix_ratio', 0.7),
-    #     speech_gain=speech_gain,
-    #     noise_mix_ratio=config.get('noise_mix_ratio', 0.5),
-    #     snr=snr
-    # )
+    # Process validation subset
+    validation_csv_path = os.path.join(output_dir, "validation.csv")
+    create_spleeter_csv(
+        stem_files=val_files,
+        stem_dir=config['stem_dir'],
+        speech_dir=config['speech_dir'],
+        noise_dir=config.get('noise_dir', ''),
+        subset_dir=train_dir,  # Validation data also stored in train directory
+        csv_path=validation_csv_path,
+        trans_dir=config['trans_dir'],
+        smr=smr,
+        snr=snr
+    )
 
     # Process test subset
     test_csv_path = os.path.join(output_dir, "test.csv")
