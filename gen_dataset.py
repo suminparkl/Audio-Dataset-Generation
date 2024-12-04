@@ -395,7 +395,6 @@ def main() -> None:
     parser.add_argument('--config', type=str, default='config.yaml', help='Path to the configuration file')
     parser.add_argument('--speech_gain', type=float, help='Gain factor for speech audio (default from config)')
     parser.add_argument('--noise_snr', type=float, help='Desired SNR for noise (default from config)')
-    parser.add_argument('--background_gain', type=float, help='Gain factor for background audio (default from config)') 
     parser.add_argument('--seed', type=float, help='Set random seed for reproduction')  
 
 
@@ -414,7 +413,6 @@ def main() -> None:
     # Optional parameters
     speech_gain = args.speech_gain if args.speech_gain is not None else config.get('speech_gain', 1.0)
     noise_snr = args.noise_snr if args.noise_snr is not None else config.get('noise_snr', 10)
-    background_gain = args.background_gain if args.background_gain is not None else config.get('background_gain', 1.0)
 
 
     # List and shuffle stem files
