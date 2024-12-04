@@ -2,9 +2,11 @@ stem_dir: "data/musdb/train"
 speech_dir: "data/LibriSpeech/dev-clean"
 noise_dir: "data/noise/sound-bible"
 trans_dir : "data/LibriSpeech/dev-clean"
-output_dir: "processed_data_test_1"  # Base directory for processed data
-smr : 30                       # Speech to Music Ratio(SMR)(unit: dB)
-snr: 20                       # Signal to Noise Ratio(SNR)(unit: dB)
+output_dir: "processed_data_test"  # Base directory for processed data
+min_smr : 0                       # min Speech to Music Ratio(SMR)(unit: dB)
+max_smr : 10                       # max Speech to Music Ratio(SMR)(unit: dB)
+min_snr: 0                       # min Signal to Noise Ratio(SNR)(unit: dB)
+max_snr: 20                       # max Signal to Noise Ratio(SNR)(unit: dB)
                               
                               # SNR = 20 dB: The signal power is 100 times greater than the noise power.
                               # SNR = 0 dB: The signal and noise have equal power.

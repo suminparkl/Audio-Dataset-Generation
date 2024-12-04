@@ -154,8 +154,8 @@ def extract_music_stem(stem_path: str, output_dir: str) -> tuple:
     # 4 - The vocals.
 def process_audio_data(
     audio_dir: str, transcriptions: dict, vocal_duration: float, rate: int, stem_name: str,
-    output_dir: str, audio_type: str, speech_gain: Optional[float] = None, snr: Optional[float] = None,
-    reference_audio_path: Optional[str] = None
+    output_dir: str, audio_type: str, min_snr: Optional[float] = None, max_snr: Optional[float] = None,
+    min_smr: Optional[float] = None, max_smr: Optional[float] = None, reference_audio_path: Optional[str] = None
 ) -> tuple:
     """
     Process audio data (speech or noise) and save the combined audio as stereo.
@@ -168,9 +168,11 @@ def process_audio_data(
         stem_name (str): Name of the stem file.
         output_dir (str): Directory to save outputs.
         audio_type (str): Type of audio ('speech' or 'noise').
-        speech_gain (Optional[float]): Gain to apply to audio (for speech).
-        snr (Optional[float]): Desired signal-to-noise ratio (for noise).
-        reference_audio_path (Optional[str]): Path to reference audio (for noise SNR calculation).
+        min_snr (Optional[float]): Minimum SNR value for noise adjustment.
+        max_snr (Optional[float]): Maximum SNR value for noise adjustment.
+        min_smr (Optional[float]): Minimum SMR value for speech adjustment.
+        max_smr (Optional[float]): Maximum SMR value for speech adjustment.
+        reference_audio_path (Optional[str]): Path to reference audio for SNR calculation.
 
     Returns:
         tuple: (Path to the processed audio file, Combined transcription)
@@ -191,7 +193,6 @@ def process_audio_data(
         logging.error(f"No {audio_type} files found in {audio_dir}")
         return None, ""
 
-    # Shuffle audio files for randomness
     random.shuffle(audio_files)
     current_duration = 0
 
@@ -205,7 +206,7 @@ def process_audio_data(
         audio_segment = AudioSegment.from_file(audio_file)
         audio_segment = audio_segment.set_channels(2)  # Ensure stereo
 
-        # Skip files longer than 10 seconds
+        # Skip files longer than 30 seconds
         if audio_segment.duration_seconds > 30:
             logging.info(f"Skipping file {audio_file} as it is longer than 30 seconds.")
             continue
@@ -214,19 +215,32 @@ def process_audio_data(
         if current_duration + audio_segment.duration_seconds > vocal_duration:
             break
 
+        # Apply SNR for noise
+        if audio_type == "noise" and reference_audio_path and min_snr is not None and max_snr is not None:
+            snr = random.uniform(min_snr, max_snr)
+            reference_audio = AudioSegment.from_file(reference_audio_path).set_channels(2)
+            calculated_gain = calculate_noise_gain(reference_audio, audio_segment, snr)
+            audio_segment = audio_segment.apply_gain(calculated_gain)
+
+        # Apply SMR for speech
+        if audio_type == "speech" and min_smr is not None and max_smr is not None:
+            smr = random.uniform(min_smr, max_smr)
+            if reference_audio_path:
+                reference_audio = AudioSegment.from_file(reference_audio_path).set_channels(2)
+                calculated_gain = calculate_speech_gain(reference_audio, audio_segment, smr)
+                audio_segment = audio_segment.apply_gain(calculated_gain)
+            # Add transcription for speech
+            audio_id = os.path.splitext(os.path.basename(audio_file))[0]
+            combined_transcription += transcriptions.get(audio_id, "") + " "
+
         # Add the audio segment
         audio_segments.append(audio_segment)
-
-        # Add transcription for this audio
-        audio_id = os.path.splitext(os.path.basename(audio_file))[0]
-        combined_transcription += transcriptions.get(audio_id, "") + " "
-
         current_duration += audio_segment.duration_seconds
 
         # Add random silence between segments
         silence_length = random.uniform(3, 5)
         if current_duration + silence_length < vocal_duration:
-            silence = AudioSegment.silent(duration=silence_length * 1000).set_channels(2)  # Ensure stereo
+            silence = AudioSegment.silent(duration=silence_length * 1000).set_channels(2)
             audio_segments.append(silence)
             current_duration += silence_length
 
@@ -235,22 +249,10 @@ def process_audio_data(
     combined_audio = combined_audio.set_frame_rate(rate)
     combined_audio = combined_audio.set_channels(2)  # Ensure stereo at final step
 
-    # Apply gain adjustments for speech
-    if audio_type == "speech" and speech_gain is not None:
-        gain_db = 20 * np.log10(speech_gain)
-        combined_audio = combined_audio.apply_gain(gain_db)
-
-    # Apply SNR adjustment for noise
-    if audio_type == "noise" and snr is not None and reference_audio_path:
-        reference_audio = AudioSegment.from_file(reference_audio_path).set_channels(2)  # Ensure stereo for reference
-        calculated_gain = calculate_noise_gain(reference_audio, combined_audio, snr)
-        combined_audio = combined_audio.apply_gain(calculated_gain)
-
     output_path = os.path.join(output_dir, f"{audio_type}_{stem_name}.wav")
     combined_audio.export(output_path, format="wav")
 
     return output_path, combined_transcription.strip()
-
 
 
 def mix_audios(
@@ -271,6 +273,7 @@ def mix_audios(
     Returns:
         str: Path to the mixed audio file.
     """
+    # Load the music audio
     music_audio = AudioSegment.from_file(music_path)
 
     # Start with music as the base
@@ -279,20 +282,22 @@ def mix_audios(
     # Overlay speech with adjusted gain if available
     if speech_path:
         speech_audio = AudioSegment.from_file(speech_path)
-        speech_gain = calculate_speech_gain(music_audio, speech_audio, smr)
+        speech_gain = calculate_speech_gain(music_audio, speech_audio, smr)  # Calculate gain for SMR
         speech_audio = speech_audio.apply_gain(speech_gain)
-        mix_audio = mix_audio.overlay(speech_audio)
+        mix_audio = mix_audio.overlay(speech_audio)  # Overlay speech on music
 
     # Overlay noise if available
     if noise_path:
         noise_audio = AudioSegment.from_file(noise_path)
-        mix_audio = mix_audio.overlay(noise_audio)
+        mix_audio = mix_audio.overlay(noise_audio)  # Overlay noise on top
 
     # Save the final mixed audio
     mix_path = os.path.join(output_dir, f"mix_{stem_name}.wav")
     mix_audio.export(mix_path, format="wav")
 
+    logging.info(f"Mixed audio saved at {mix_path}")
     return mix_path
+
 
 
 
@@ -320,12 +325,11 @@ def load_transcriptions(trans_dir: str) -> dict:
 
 
     return transcriptions
-
-
 def create_spleeter_csv(
     stem_files: List[str], stem_dir: str, speech_dir: str, noise_dir: str,
     subset_dir: str, csv_path: str, trans_dir: str,
-    smr: float = 0.0, snr: float = 10.0
+    min_smr: float = 20.0, max_smr: float = 30.0,
+    min_snr: float = 20.0, max_snr: float = 30.0
 ) -> None:
     """
     Process a subset of stem files and save outputs into the subset directory.
@@ -338,8 +342,10 @@ def create_spleeter_csv(
         subset_dir (str): Directory to save outputs for this subset.
         csv_path (str): Path to save the subset CSV file.
         trans_dir (str): Directory containing transcription files.
-        smr (float, optional): Speech-to-Music Ratio (SMR) in dB.
-        snr (float, optional): Desired SNR for noise.
+        min_smr (float, optional): Minimum Speech-to-Music Ratio (SMR) in dB.
+        max_smr (float, optional): Maximum Speech-to-Music Ratio (SMR) in dB.
+        min_snr (float, optional): Minimum Signal-to-Noise Ratio (SNR) in dB.
+        max_snr (float, optional): Maximum Signal-to-Noise Ratio (SNR) in dB.
     """
     # Load transcriptions
     transcriptions = load_transcriptions(trans_dir)
@@ -366,7 +372,9 @@ def create_spleeter_csv(
                 rate=rate,
                 stem_name=stem_name,
                 output_dir=subset_dir,
-                audio_type='speech'
+                audio_type='speech',
+                min_smr=min_smr,
+                max_smr=max_smr
             )
 
             # Process others (noise)
@@ -377,8 +385,9 @@ def create_spleeter_csv(
                 rate=rate,
                 stem_name=stem_name,
                 output_dir=subset_dir,
-                audio_type='others',
-                snr=snr,
+                audio_type='noise',
+                min_snr=min_snr,
+                max_snr=max_snr,
                 reference_audio_path=music_path
             )
 
@@ -389,7 +398,7 @@ def create_spleeter_csv(
                 noise_path=others_path,
                 output_dir=subset_dir,
                 stem_name=stem_name,
-                smr=smr
+                smr=random.uniform(min_smr, max_smr)  # Random SMR for the mix
             )
 
             # Append data to CSV
@@ -416,7 +425,6 @@ def create_spleeter_csv(
         logging.warning(f"No data to write to CSV for {subset_dir}.")
 
 
-
 def main() -> None:
     setup_logging()
 
@@ -438,9 +446,6 @@ def main() -> None:
     output_dir = config['output_dir']
     os.makedirs(output_dir, exist_ok=True)
 
-    # Optional parameters
-    smr = args.smr if args.smr is not None else config.get('smr', 0.0)
-    snr = args.snr if args.snr is not None else config.get('snr', 10)
 
 
     # List and shuffle stem files
@@ -470,8 +475,10 @@ def main() -> None:
         subset_dir=train_dir,
         csv_path=train_csv_path,
         trans_dir=config['trans_dir'],
-        smr=smr,
-        snr=snr
+        min_smr=config.get('min_smr', 20),
+        max_smr=config.get('max_smr', 30),
+        min_snr=config.get('min_snr', 20),
+        max_snr=config.get('max_snr', 30)
     )
 
 
@@ -485,8 +492,10 @@ def main() -> None:
         subset_dir=train_dir,  # Validation data also stored in train directory
         csv_path=validation_csv_path,
         trans_dir=config['trans_dir'],
-        smr=smr,
-        snr=snr
+        min_smr=config.get('min_smr', 20),
+        max_smr=config.get('max_smr', 30),
+        min_snr=config.get('min_snr', 20),
+        max_snr=config.get('max_snr', 30)
     )
 
     # Process test subset
@@ -499,8 +508,10 @@ def main() -> None:
         subset_dir=test_dir,
         csv_path=test_csv_path,
         trans_dir=config['trans_dir'],
-        smr=smr,
-        snr=snr
+        min_smr=config.get('min_smr', 20),
+        max_smr=config.get('max_smr', 30),
+        min_snr=config.get('min_snr', 20),
+        max_snr=config.get('max_snr', 30)
     )
 if __name__ == "__main__":
     main()
