@@ -91,6 +91,31 @@ def calculate_noise_gain(clean_audio: AudioSegment, noise_audio: AudioSegment, s
 
     return gain
 
+def calculate_speech_gain(music_audio: AudioSegment, speech_audio: AudioSegment, smr: float) -> float:
+    """
+    Calculate the gain needed for the speech audio to achieve the desired SMR.
+
+    Args:
+        music_audio (AudioSegment): The music audio segment.
+        speech_audio (AudioSegment): The speech audio segment.
+        smr (float): The desired Speech-to-Music Ratio (in dB).
+
+    Returns:
+        float: The gain in dB to apply to the speech audio.
+    """
+    music_rms = music_audio.rms
+    speech_rms = speech_audio.rms
+    if music_rms == 0 or speech_rms == 0:
+        logging.warning("RMS value is zero for either music or speech. Gain cannot be calculated.")
+        return 0.0
+
+    # Calculate the desired speech RMS based on SMR
+    desired_speech_rms = music_rms * (10 ** (smr / 20))
+    gain = 20 * np.log10(desired_speech_rms / speech_rms)
+
+    return gain
+
+
 def extract_music_stem(stem_path: str, output_dir: str) -> tuple:
     """
     Extract music stem from a stem file and save it.
@@ -230,7 +255,7 @@ def process_audio_data(
 
 def mix_audios(
     music_path: str, speech_path: Optional[str], noise_path: Optional[str],
-    output_dir: str, stem_name: str
+    output_dir: str, stem_name: str, smr: float
 ) -> str:
     """
     Mix the speech, music, and noise components into a final mix.
@@ -241,6 +266,7 @@ def mix_audios(
         noise_path (Optional[str]): Path to the noise audio.
         output_dir (str): Directory to save outputs.
         stem_name (str): Name of the stem file.
+        smr (float): Speech-to-Music Ratio (SMR) in dB.
 
     Returns:
         str: Path to the mixed audio file.
@@ -250,9 +276,11 @@ def mix_audios(
     # Start with music as the base
     mix_audio = music_audio
 
-    # Overlay speech if available
+    # Overlay speech with adjusted gain if available
     if speech_path:
         speech_audio = AudioSegment.from_file(speech_path)
+        speech_gain = calculate_speech_gain(music_audio, speech_audio, smr)
+        speech_audio = speech_audio.apply_gain(speech_gain)
         mix_audio = mix_audio.overlay(speech_audio)
 
     # Overlay noise if available
@@ -265,6 +293,7 @@ def mix_audios(
     mix_audio.export(mix_path, format="wav")
 
     return mix_path
+
 
 
 
@@ -296,8 +325,7 @@ def load_transcriptions(trans_dir: str) -> dict:
 def create_spleeter_csv(
     stem_files: List[str], stem_dir: str, speech_dir: str, noise_dir: str,
     subset_dir: str, csv_path: str, trans_dir: str,
-    speech_gain: float = 1.0,
-    noise_snr: float = 10
+    smr: float = 0.0, noise_snr: float = 10.0
 ) -> None:
     """
     Process a subset of stem files and save outputs into the subset directory.
@@ -310,7 +338,7 @@ def create_spleeter_csv(
         subset_dir (str): Directory to save outputs for this subset.
         csv_path (str): Path to save the subset CSV file.
         trans_dir (str): Directory containing transcription files.
-        speech_gain (float, optional): Gain factor for speech audio.
+        smr (float, optional): Speech-to-Music Ratio (SMR) in dB.
         noise_snr (float, optional): Desired SNR for noise.
     """
     # Load transcriptions
@@ -338,8 +366,7 @@ def create_spleeter_csv(
                 rate=rate,
                 stem_name=stem_name,
                 output_dir=subset_dir,
-                audio_type='speech',
-                speech_gain=speech_gain
+                audio_type='speech'
             )
 
             # Process others (noise)
@@ -355,13 +382,14 @@ def create_spleeter_csv(
                 reference_audio_path=music_path
             )
 
-            # Create mix audio
+            # Create mix audio with SMR
             mix_path = mix_audios(
                 music_path=music_path,
                 speech_path=speech_path,
                 noise_path=others_path,
                 output_dir=subset_dir,
-                stem_name=stem_name
+                stem_name=stem_name,
+                smr=smr
             )
 
             # Append data to CSV
@@ -388,15 +416,15 @@ def create_spleeter_csv(
         logging.warning(f"No data to write to CSV for {subset_dir}.")
 
 
+
 def main() -> None:
     setup_logging()
 
     parser = argparse.ArgumentParser(description="Create Spleeter CSV")
     parser.add_argument('--config', type=str, default='config.yaml', help='Path to the configuration file')
-    parser.add_argument('--speech_gain', type=float, help='Gain factor for speech audio (default from config)')
+    parser.add_argument('--smr', type=float, help='Speech-to-Music Ratio (SMR) in dB (default from config)')
     parser.add_argument('--noise_snr', type=float, help='Desired SNR for noise (default from config)')
-    parser.add_argument('--seed', type=float, help='Set random seed for reproduction')  
-
+    parser.add_argument('--seed', type=float, help='Set random seed for reproduction')
 
     args = parser.parse_args()
     config = load_config(args.config)
@@ -411,7 +439,7 @@ def main() -> None:
     os.makedirs(output_dir, exist_ok=True)
 
     # Optional parameters
-    speech_gain = args.speech_gain if args.speech_gain is not None else config.get('speech_gain', 1.0)
+    smr = args.smr if args.smr is not None else config.get('smr', 0.0)
     noise_snr = args.noise_snr if args.noise_snr is not None else config.get('noise_snr', 10)
 
 
@@ -475,10 +503,8 @@ def main() -> None:
         subset_dir=test_dir,
         csv_path=test_csv_path,
         trans_dir=config['trans_dir'],
-        speech_gain=speech_gain,
-        noise_snr=noise_snr,
+        smr=smr,
+        noise_snr=noise_snr
     )
-
-
 if __name__ == "__main__":
     main()
