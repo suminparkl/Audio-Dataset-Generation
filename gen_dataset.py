@@ -325,7 +325,7 @@ def load_transcriptions(trans_dir: str) -> dict:
 def create_spleeter_csv(
     stem_files: List[str], stem_dir: str, speech_dir: str, noise_dir: str,
     subset_dir: str, csv_path: str, trans_dir: str,
-    smr: float = 0.0, noise_snr: float = 10.0
+    smr: float = 0.0, snr: float = 10.0
 ) -> None:
     """
     Process a subset of stem files and save outputs into the subset directory.
@@ -339,7 +339,7 @@ def create_spleeter_csv(
         csv_path (str): Path to save the subset CSV file.
         trans_dir (str): Directory containing transcription files.
         smr (float, optional): Speech-to-Music Ratio (SMR) in dB.
-        noise_snr (float, optional): Desired SNR for noise.
+        snr (float, optional): Desired SNR for noise.
     """
     # Load transcriptions
     transcriptions = load_transcriptions(trans_dir)
@@ -378,7 +378,7 @@ def create_spleeter_csv(
                 stem_name=stem_name,
                 output_dir=subset_dir,
                 audio_type='others',
-                snr=noise_snr,
+                snr=snr,
                 reference_audio_path=music_path
             )
 
@@ -423,7 +423,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Create Spleeter CSV")
     parser.add_argument('--config', type=str, default='config.yaml', help='Path to the configuration file')
     parser.add_argument('--smr', type=float, help='Speech-to-Music Ratio (SMR) in dB (default from config)')
-    parser.add_argument('--noise_snr', type=float, help='Desired SNR for noise (default from config)')
+    parser.add_argument('--snr', type=float, help='Desired SNR for noise (default from config)')
     parser.add_argument('--seed', type=float, help='Set random seed for reproduction')
 
     args = parser.parse_args()
@@ -440,7 +440,7 @@ def main() -> None:
 
     # Optional parameters
     smr = args.smr if args.smr is not None else config.get('smr', 0.0)
-    noise_snr = args.noise_snr if args.noise_snr is not None else config.get('noise_snr', 10)
+    snr = args.snr if args.snr is not None else config.get('snr', 10)
 
 
     # List and shuffle stem files
@@ -473,7 +473,7 @@ def main() -> None:
     #     speech_mix_ratio=config.get('speech_mix_ratio', 0.7),
     #     speech_gain=speech_gain,
     #     noise_mix_ratio=config.get('noise_mix_ratio', 0.5),
-    #     noise_snr=noise_snr
+    #     snr=snr
     # )
 
 
@@ -490,7 +490,7 @@ def main() -> None:
     #     speech_mix_ratio=config.get('speech_mix_ratio', 0.7),
     #     speech_gain=speech_gain,
     #     noise_mix_ratio=config.get('noise_mix_ratio', 0.5),
-    #     noise_snr=noise_snr
+    #     snr=snr
     # )
 
     # Process test subset
@@ -504,7 +504,7 @@ def main() -> None:
         csv_path=test_csv_path,
         trans_dir=config['trans_dir'],
         smr=smr,
-        noise_snr=noise_snr
+        snr=snr
     )
 if __name__ == "__main__":
     main()
