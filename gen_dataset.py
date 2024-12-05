@@ -65,37 +65,70 @@ def create_train_val_test_split(stem_files: List[str], train_ratio: float = 0.8,
 
     return train_files, val_files, test_files
 
-def calculate_noise_gain(music_audio: AudioSegment, speech_audio: Optional[AudioSegment], noise_audio: AudioSegment, snr: float) -> float:
+
+
+
+def normalize_audio(audio: AudioSegment, target_dBFS: float) -> AudioSegment:
+    """
+    Normalize an audio segment to a target RMS level in dBFS.
+
+    Args:
+        audio (AudioSegment): The audio segment to normalize.
+        target_dBFS (float): The desired RMS level in dBFS.
+
+    Returns:
+        AudioSegment: The normalized audio segment.
+    """
+    if audio.dBFS == float('-inf'):
+        logging.warning("Audio is silent, skipping normalization.")
+        return audio
+
+    change_in_dBFS = target_dBFS - audio.dBFS
+    return audio.apply_gain(change_in_dBFS)
+
+
+
+def calculate_noise_gain(
+    music_audio: AudioSegment, 
+    speech_audio: Optional[AudioSegment], 
+    noise_audio: AudioSegment, 
+    snr: float
+) -> float:
     """
     Calculate the gain needed for the noise audio to achieve the desired SNR.
 
     Args:
         music_audio (AudioSegment): The music audio segment.
-        speech_audio (Optional[AudioSegment]): The speech audio segment (optional if only music is used).
+        speech_audio (Optional[AudioSegment]): The speech audio segment.
         noise_audio (AudioSegment): The noise audio segment.
         snr (float): The desired signal-to-noise ratio in dB.
 
     Returns:
         float: The gain in dB to apply to the noise audio.
     """
-    # Calculate RMS for music + speech combined
-    music_rms = music_audio.rms
-    speech_rms = speech_audio.rms if speech_audio else 0
-    combined_rms = np.sqrt((music_rms ** 2 + speech_rms ** 2) / 2)
+    if music_audio.dBFS == float('-inf') and (speech_audio is None or speech_audio.dBFS == float('-inf')):
+        logging.warning("Music and speech are silent. Cannot calculate combined dBFS.")
+        return 0.0
 
-    # Calculate RMS for noise
-    noise_rms = noise_audio.rms
+    # Calculate combined power in the linear domain
+    combined_power = 0.0
+    if music_audio.dBFS != float('-inf'):
+        combined_power += 10 ** (music_audio.dBFS / 10)
+    if speech_audio and speech_audio.dBFS != float('-inf'):
+        combined_power += 10 ** (speech_audio.dBFS / 10)
+    if combined_power == 0.0:
+        logging.warning("Combined audio power is zero. Cannot calculate gain.")
+        return 0.0
 
-    if noise_rms == 0:
-        logging.warning("Noise RMS is zero. Returning infinite gain.")
-        return -float('inf')  # Handle silence in noise
+    combined_dBFS = 10 * np.log10(combined_power)
 
-    # Desired noise RMS for the given SNR
-    desired_noise_rms = combined_rms / (10 ** (snr / 20))
+    if noise_audio.dBFS == float('-inf'):
+        logging.warning("Noise is silent. Gain cannot be calculated.")
+        return 0.0
 
-    # Calculate gain
-    gain = 20 * np.log10(desired_noise_rms / noise_rms)
+    gain = (combined_dBFS - snr) - noise_audio.dBFS
     return gain
+
 
 
     # SNR = 20 dB: The signal power is 100 times greater than the noise power.
@@ -116,17 +149,13 @@ def calculate_speech_gain(music_audio: AudioSegment, speech_audio: AudioSegment,
     Returns:
         float: The gain in dB to apply to the speech audio.
     """
-    music_rms = music_audio.rms
-    speech_rms = speech_audio.rms
-    if music_rms == 0 or speech_rms == 0:
-        logging.warning("RMS value is zero for either music or speech. Gain cannot be calculated.")
+    if music_audio.dBFS == float('-inf') or speech_audio.dBFS == float('-inf'):
+        logging.warning("Audio is silent, gain cannot be calculated.")
         return 0.0
 
-    # Calculate the desired speech RMS based on SMR
-    desired_speech_rms = music_rms * (10 ** (smr / 20))
-    gain = 20 * np.log10(desired_speech_rms / speech_rms)
-
+    gain = (music_audio.dBFS + smr) - speech_audio.dBFS
     return gain
+
 
 
 def extract_music_stem(stem_path: str, output_dir: str) -> tuple:
@@ -229,6 +258,13 @@ def process_audio_data(
         # Check if adding this audio exceeds the allowed limit
         if current_duration + audio_segment.duration_seconds > vocal_duration:
             break
+
+        # Normalize music, speech, and current audio segment
+        if music_audio:
+            music_audio = normalize_audio(music_audio, target_dBFS=-20.0)  # Normalize music
+        if speech_audio:
+            speech_audio = normalize_audio(speech_audio, target_dBFS=-20.0)  # Normalize speech
+        audio_segment = normalize_audio(audio_segment, target_dBFS=-20.0)  # Normalize current segment
 
         # Apply SNR for noise
         if audio_type == "noise" and music_audio is not None and min_snr is not None and max_snr is not None:
