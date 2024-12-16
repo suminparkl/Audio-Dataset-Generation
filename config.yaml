@@ -1,15 +1,16 @@
 stem_dir: "data/musdb/train"
 speech_dir: "data/LibriSpeech/dev-clean"
 noise_dir: "data/noise/sound-bible"
-output_dir: "processed_data_1"  # Base directory for processed data
-speech_mix_ratio: 0.7         # If the mix_ratio is 1, there are no intervals between speech segments (connected continuously)
-speech_gain: 1.0              # Speech volume adjustment ratio (1.0 means no change) (deprecated)
-noise_mix_ratio: 0.5          # If the mix_ratio is 1, there are no intervals between noise segments (connected continuously)
-noise_snr: 30                 # The SNR value with the noise signal (unit: dB)
+trans_dir : "data/LibriSpeech/dev-clean"
+output_dir: "processed_data_1_clean_10"  # Base directory for processed data
+commonvoice_clips_dir : "data/cv-corpus-17.0-delta-2024-03-15/en/clips"
+min_smr : -3                       # min Speech to Music Ratio(SMR)(unit: dB)
+max_smr : 6                       # max Speech to Music Ratio(SMR)(unit: dB)
+min_snr: 0                       # min Signal to Noise Ratio(SNR)(unit: dB)
+max_snr: 5                       # max Signal to Noise Ratio(SNR)(unit: dB)
                               
                               # SNR = 20 dB: The signal power is 100 times greater than the noise power.
                               # SNR = 0 dB: The signal and noise have equal power.
                               # SNR < 0 dB: The noise power is greater than the signal power.
 
-background_gain : 1        # Background volume adjustment ratio (1.0 means no change)
 seed : 42                    # Random seed for data reproduction

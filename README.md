@@ -1,6 +1,4 @@
-# Sumin 
-
-## 1. 설정 파일: `config.yaml`
+## 1. Configuration file: `config.yaml`
 
 `config.yaml`
 
@@ -9,16 +7,15 @@ stem_dir: "data/musdb/train"
 speech_dir: "data/LibriSpeech/dev-clean"
 noise_dir: "data/noise/sound-bible"
 output_dir: "processed_data"  # Base directory for processed data
-speech_mix_ratio: 0.7         # If the mix_ratio is 1, there are no intervals between speech segments (connected continuously)
-speech_gain: 1.0              # Speech volume adjustment ratio (1.0 means no change)
-noise_mix_ratio: 0.5          # If the mix_ratio is 1, there are no intervals between noise segments (connected continuously)
-noise_snr: 30                 # The SNR value with the noise signal (unit: dB)
+min_smr : 0                       # min Speech to Music Ratio(SMR)(unit: dB)
+max_smr : 10                       # max Speech to Music Ratio(SMR)(unit: dB)
+min_snr: 0                       # min Signal to Noise Ratio(SNR)(unit: dB)
+max_snr: 20                       # max Signal to Noise Ratio(SNR)(unit: dB)
                               
                               # SNR = 20 dB: The signal power is 100 times greater than the noise power.
                               # SNR = 0 dB: The signal and noise have equal power.
                               # SNR < 0 dB: The noise power is greater than the signal power.
 
-background_gain : 1        # Background volume adjustment ratio (1.0 means no change)
 seed : 42                    # Random seed for data reproduction
 
 ```
@@ -122,10 +119,8 @@ processed_data/
 - [Download LibriSpeech (train-clean-100)](https://drive.google.com/file/d/1HBw50T374ECaWX6XYTY7S1g4SpDj_U91/view?usp=drive_link)
 - [Download MUSDB](https://drive.google.com/file/d/15QMdtI17JFjKzPLIVEMZDBJMJef7PJsx/view?usp=drive_link)
 - [Download MUSAN Noise](https://drive.google.com/file/d/1r-rqnSzligtNrYloBX4hCl7lkCR12ZQ1/view?usp=sharing)
-- [Download Preprocessed_Dataset_For_Test_1](https://drive.google.com/file/d/1a__8qgYS15iP_4uxvMEAdW9icapPMZYM/view?usp=sharing)
-- [Download Preprocessed_Dataset_For_Test_0.3](https://drive.google.com/file/d/1PdstxraED3I6m6-ycoxFFOSQXFEfAyVC/view?usp=drive_link)
-- [Download Preprocessed_Dataset_For_Test_0.5](https://drive.google.com/file/d/1-vmDBos9N38qpTuwR7PxA72fsONMd4yA/view?usp=drive_link)
-
+- [Download our_clean](https://drive.google.com/file/d/13M2kD3vAcbUQqSJ2vW23T2uydqC5z2XJ/view?usp=drive_link)
+- [Download our_noisy](https://drive.google.com/file/d/1SBT6yinxwSKt9vEi_RP5MN_0NZxBVgmY/view?usp=drive_link)
 
 
 
