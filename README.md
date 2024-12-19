@@ -123,7 +123,7 @@ processed_data_curated/
 
 ```
 
-## 6.Google Drive Links for Downloading Datasets
+## 6. Google Drive Links for Downloading Datasets
 
 
 - [Download MUSDB](https://drive.google.com/file/d/15QMdtI17JFjKzPLIVEMZDBJMJef7PJsx/view?usp=sharing)
@@ -133,7 +133,7 @@ processed_data_curated/
 
 
 
-## 7.Acknowledgements
+## 7. Acknowledgements
 
 - Our dataset is built using the following sources:
   - [Common Voice v17.0](https://commonvoice.mozilla.org/en/datasets)
