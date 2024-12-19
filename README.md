@@ -111,9 +111,9 @@ processed_data_curated/
 │   ├── ...
 ├── test/
 │   ├── Arise - Run Run Run_mix.wav
-│   ├── Arise - Run Run Run_mix.wav
-│   ├── Arise - Run Run Run_mix.wav
-│   ├── Arise - Run Run Run_mix.wav
+│   ├── Arise - Run Run Run_music.wav
+│   ├── Arise - Run Run Run_speech.wav
+│   ├── Arise - Run Run Run_others.wav
 │   ├── ...
 ├── train.csv
 ├── validation.csv
