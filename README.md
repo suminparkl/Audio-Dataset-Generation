@@ -1,22 +1,28 @@
+# Dataset Preparation for Audio Processing
+
 ## 1. Configuration file: `config.yaml`
 
 `config.yaml`
 
 ```yaml
-stem_dir: "data/musdb/train"
-speech_dir: "data/LibriSpeech/dev-clean"
+
+stem_dir_train: "data/musdb/train"
+stem_dir_test : "data/musdb/test"
 noise_dir: "data/noise/sound-bible"
-output_dir: "processed_data"  # Base directory for processed data
-min_smr : 0                       # min Speech to Music Ratio(SMR)(unit: dB)
-max_smr : 10                       # max Speech to Music Ratio(SMR)(unit: dB)
-min_snr: 0                       # min Signal to Noise Ratio(SNR)(unit: dB)
-max_snr: 20                       # max Signal to Noise Ratio(SNR)(unit: dB)
+output_dir: "processed_data_curated_1"  # Base directory for processed data
+commonvoice_clips_dir_train : "data/cv-corpus-17-curated/common_voice_curated_train"
+commonvoice_clips_dir_test : "data/cv-corpus-17-curated/common_voice_curated_test"
+min_smr : -3                       # min Speech to Music Ratio(SMR)(unit: dB)3.09
+max_smr : 6                   # max Speech to Music Ratio(SMR)(unit: dB)
+min_snr: 0                       # min Signal to Noise Ratio(SNR)(unit: dB) 2.57
+max_snr: 10                       # max Signal to Noise Ratio(SNR)(unit: dB) 2.57
                               
                               # SNR = 20 dB: The signal power is 100 times greater than the noise power.
                               # SNR = 0 dB: The signal and noise have equal power.
                               # SNR < 0 dB: The noise power is greater than the signal power.
 
 seed : 42                    # Random seed for data reproduction
+
 
 ```
 ## 2. requirements.txt
@@ -41,87 +47,97 @@ tqdm==4.67.0
 ## 4. Dataset
 
 ```
-##LibriSpeech.dev-clean
+##common_voice_17_0
 ##musdb.train
 ##musan.noise.sound-bible
 
 
 data/
-├── LibriSpeech                  # speech dataset
-│   └── dev-clean
-│       ├── 84
-│       │   ├── 121123
-│       │   │   ├── 84-121123-0000.flac
-│       │   │   ├── 84-121123-0001.flac
-│       │   │   └── ...
+├── cv-corpus-17-curated         # Common Voice curated dataset
+│   ├── common_voice_curated_train
+│   │   ├── common_voice_en_12345.wav
+│   │   ├── common_voice_en_67890.wav
+│   │   └── ...
+│   └── common_voice_curated_test
+│       ├── common_voice_en_2737.wav
+│       ├── common_voice_en_71783.wav
 │       └── ...
-├── musdb                        # music stem dataset
-│   └── train
-│       ├── music-001.stem.mp4
-│       ├── music-002.stem.mp4
+├── musdb                       # Music stem dataset
+│   ├── train
+│   │   ├── music-001.stem.mp4
+│   │   ├── music-002.stem.mp4
+│   │   └── ...
+│   └── test
+│       ├── music-003.stem.mp4
+│       ├── music-004.stem.mp4
 │       └── ...
-└── musan                         # noise dataset
-    ├── music                     # not used here
+└── musan                       # Noise dataset
+    ├── music                   # Not used here
     │   ├── music-001.wav
     │   ├── music-002.wav
     │   └── ...
-    ├── noise                    # background noise sound dataset
-    │   ├── free-sound           # Free Sound source
+    ├── noise                   # Background noise sound dataset
+    │   ├── free-sound          # Free Sound source
     │   │   ├── noise-sound-001.wav
     │   │   ├── noise-sound-002.wav
     │   │   └── ...
-    │   └── sound-bible          # Sound Bible source
+    │   └── sound-bible         # Sound Bible source
     │       ├── noise-sound-bible-0071.wav
     │       ├── noise-sound-bible-0072.wav
     │       └── ...
-    └── speech                   # not used here
+    └── speech                  # Not used here
         ├── speech-001.wav
         ├── speech-002.wav
         └── ...
+
 ```
 
 ## 5. Prepocessed Dataset for Test
 
 ```
-##LibriSpeech.dev-clean
-##musdb.train
-##musan.noise.sound-bible
 
-
-processed_data/
+processed_data_curated/
 ├── train/
-│   ├── mix_Music Delta - Disco.wav
-│   ├── vocals_Music Delta - Disco.wav
-│   ├── backgrounds_Music Delta - Disco.wav
-│   ├── speech_Music Delta - Disco.wav
-│   ├── noise_Music Delta - Disco.wav
-│   ├── mix_The Wrong'Uns - Rothko.wav
+│   ├── Actions - Devil's Words_mix.wav
+│   ├── Actions - Devil's Words_music.wav
+│   ├── Actions - Devil's Words_speech.wav
+│   ├── Actions - Devil's Words_others.wav
+│   ├── ...
+├── validation/
+│   ├── AvaLuna - Waterduct_mix.wav
+│   ├── AvaLuna - Waterduct_music.wav
+│   ├── AvaLuna - Waterduct_speech.wav
+│   ├── AvaLuna - Waterduct_others.wav
 │   ├── ...
 ├── test/
-│   ├── mix_James May - All Souls Moon.wav
-│   ├── vocals_James May - All Souls Moon.wav
-│   ├── backgrounds_James May - All Souls Moon.wav
-│   ├── speech_James May - All Souls Moon.wav
-│   ├── noise_James May - All Souls Moon.wav
+│   ├── Arise - Run Run Run_mix.wav
+│   ├── Arise - Run Run Run_mix.wav
+│   ├── Arise - Run Run Run_mix.wav
+│   ├── Arise - Run Run Run_mix.wav
 │   ├── ...
 ├── train.csv
 ├── validation.csv
-├── test.csv
-└── total_result.csv
+└── test.csv
 
-## This test dataset created with the parameters from the config.yaml above.
+## Following our dataset is created with the parameters from the config.yaml above.
 
 ```
 
-# Google Drive Links for Downloading Datasets
+## 6.Google Drive Links for Downloading Datasets
 
-- [Download LibriSpeech (dev-clean)](https://drive.google.com/file/d/1pbecU-SD_o2lyCMafsSM4SFQ9lWkfHzB/view?usp=drive_link)
-- [Download LibriSpeech (train-clean-100)](https://drive.google.com/file/d/1HBw50T374ECaWX6XYTY7S1g4SpDj_U91/view?usp=drive_link)
-- [Download MUSDB](https://drive.google.com/file/d/15QMdtI17JFjKzPLIVEMZDBJMJef7PJsx/view?usp=drive_link)
+
+- [Download MUSDB](https://drive.google.com/file/d/15QMdtI17JFjKzPLIVEMZDBJMJef7PJsx/view?usp=sharing)
 - [Download MUSAN Noise](https://drive.google.com/file/d/1r-rqnSzligtNrYloBX4hCl7lkCR12ZQ1/view?usp=sharing)
-- [Download our_clean](https://drive.google.com/file/d/13M2kD3vAcbUQqSJ2vW23T2uydqC5z2XJ/view?usp=drive_link)
-- [Download our_noisy](https://drive.google.com/file/d/1SBT6yinxwSKt9vEi_RP5MN_0NZxBVgmY/view?usp=drive_link)
+- [Download our preprocessed curated Dataset](https://drive.google.com/file/d/1E2tcYXM7e3HgUGVa7oH2ntoG0-VcQR9o/view?usp=sharing)
 
 
 
 
+## 7.Acknowledgements
+
+- Our dataset is built using the following sources:
+  - [Common Voice v17.0](https://commonvoice.mozilla.org/en/datasets)
+  - [MUSDB18](https://sigsep.github.io/datasets/musdb.html)
+  - [MUSAN](http://www.openslr.org/17/)
+
+- [2024.12.19] Thanks to the contributors of these datasets for providing valuable resources for audio processing research.
